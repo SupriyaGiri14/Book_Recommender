@@ -1,6 +1,8 @@
 import streamlit as st
 import pickle
 import numpy as np
+import ast
+import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 
 # -----------------------------
@@ -26,6 +28,15 @@ title_to_idx = {title: i for i, title in enumerate(df_final["title"])}
 author_group = df_final.groupby("author")
 
 df_final["author"] = df_final["author"].astype(str).str.strip()
+
+#------------------------------
+# Page Configuration
+#------------------------------
+st.set_page_config(
+    page_title="Book Recommender",
+    page_icon="📚", 
+    layout="centered"
+)
 
 # -----------------------------
 # GLOBAL CSS (ONLY ONCE)
@@ -67,6 +78,7 @@ st.markdown("""
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    
 }
 
 .book-card:hover {
@@ -75,7 +87,7 @@ st.markdown("""
 
 .book-card img {
     width: 100%;
-    height: 200px;
+    height: 280px;
     object-fit: cover;
     border-radius: 8px;
 }
@@ -84,17 +96,25 @@ st.markdown("""
     font-weight: bold;
     margin-top: 10px;
     font-size: 0.9em;
-    white-space: nowrap;
+    /* Remove these three lines to allow wrapping */
+    /* white-space: nowrap; */
+    /* overflow: hidden; */
+    /* text-overflow: ellipsis; */
+    
+    /* Add these to handle wrapping */
+    word-wrap: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Limits title to 2 lines, then truncates */
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
 }
-
+            
 .badge {
-    background-color: #f1f1f1;
+    background-color: white;
     padding: 5px;
     border-radius: 5px;
     margin-top: 5px;
-    font-size: 0.8em;
+    font-size: 1em;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -108,22 +128,26 @@ def get_book_idx(title):
 
 def recommend_books(book_idx, top_n=10):
 
-    cluster = df_final.loc[book_idx, "cluster"]
+        cluster = df_final.loc[book_idx, "cluster"]
 
-    candidates = np.where(df_final["cluster"].values == cluster)[0]
-    candidates = candidates[candidates != book_idx]
+        candidates = np.where(df_final["cluster"].values == cluster)[0]
+        candidates = candidates[candidates != book_idx]
 
-    sims = cosine_similarity(
-        X[book_idx].reshape(1, -1),
-        X[candidates]
-    )[0]
+        sims = cosine_similarity(
+            X[book_idx].reshape(1, -1),
+            X[candidates]
+        )[0]
 
-    top_idx = np.argsort(sims)[::-1][:top_n]
-    selected = candidates[top_idx]
+        top_idx = np.argsort(sims)[::-1][:top_n]
+        selected = candidates[top_idx]
 
-    return df_final.iloc[selected][
-        ["title", "author", "image", "rating", "author_link"]
-    ]
+        result = df_final.iloc[selected].copy()
+
+        result["genres"] = result["genres"].apply(
+        lambda x: ", ".join(x) if isinstance(x, list) else ""
+        )
+
+        return result[["title","author","image","rating","author_link","genres"]]
 
 # -----------------------------
 # AUTHOR RECOMMENDER
@@ -156,103 +180,247 @@ def get_top_books(author, n=3):
         .tolist()
     )
 
+
+def fix_embedding(x):
+    if isinstance(x, str):
+        return np.array(ast.literal_eval(x))
+    return np.array(x)
+
+#df["embedding"] = df["embedding"].apply(fix_embedding)
+
+mood_map = {
+    "Happy 😊": "fun uplifting feel good comedy joyful light",
+    "Emotional 😢": "sad drama emotional deep relationships tragedy",
+    "Fantasy 🧙": "magic fantasy dragons epic adventure world",
+    "Mystery 🕵️": "crime mystery thriller detective suspense",
+    "Adventure 🚀": "journey action survival exploration travel",
+    "Romantic ❤️": "romance love relationship emotional passion"
+}
+
+from sentence_transformers import SentenceTransformer
+
+@st.cache_resource
+def load_embedder():
+    return SentenceTransformer("all-MiniLM-L6-v2")
+
+model = load_embedder()
+
+def cosine(a, b):
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+def recommend(mood):
+    mood_vec = model.encode(mood_map[mood])
+
+    df_final["score"] = df_final["embedding"].apply(
+        lambda x: cosine(x, mood_vec)
+    )
+
+    return df_final.sort_values("score", ascending=False).head(3)
+
 # -----------------------------
 # UI
 # -----------------------------
+
+st.sidebar.image(r"..\images\book_image.gif")
+
+st.markdown("""
+<div class="marquee">
+    <span>
+    📚 "A reader lives a thousand lives before he dies. The man who never reads lives only one." — George R.R. Martin &nbsp;&nbsp;&nbsp;📖
+    "Books are a uniquely portable magic." — Stephen King &nbsp;&nbsp;&nbsp;✨
+    "Today a reader, tomorrow a leader." — Margaret Fuller
+    </span>
+</div>
+
+<style>
+.marquee {
+    width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    background: #053827;
+    color: white;
+    padding: 12px 0;
+    font-size: 18px;
+    font-weight: 600;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.marquee span {
+    display: inline-block;
+    padding-left: 100%;
+    animation: marquee 25s linear infinite;
+}
+
+@keyframes marquee {
+    0% {
+        transform: translateX(0%);
+    }
+    100% {
+        transform: translateX(-100%);
+    }
+}
+.stTabs [data-baseweb="tab-list"] {
+        gap: 20px;
+}
+
+.stTabs [data-baseweb="tab"] {
+        padding: 10px 16px;
+        border-radius: 10px;
+        background-color: #1f2937;
+        font-weight: 500;
+        color: white;
+        width:220px;
+}
+
+.stTabs [aria-selected="true"] {
+        background-color: #555555;
+        color: white;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.title("📚 Book Recommender System")
+st.write("")
+tab1, tab2, tab3 = st.tabs(["📖 Books by Book", "👨‍💼Books by Author", "🎭 Books by Mood"])
+
 
 # -----------------------------
 # BOOK MODE
 # -----------------------------
-book_title = st.selectbox("Select a book:", df_final["title"].values)
-top_n = st.slider("Number of recommendations", 3, 10, 6)
+def book_by_book():
+    st.markdown("<h1 style='font-size:30px;'>📖 Find Similar Books</h1>", unsafe_allow_html=True)
 
-if st.button("Recommend Books"):
+    book_title = st.selectbox("Select a book:", df_final["title"].values)
+    top_n = st.slider("Number of recommendations", 3, 10, 6)
 
-    book_idx = get_book_idx(book_title)
+    if st.button("Recommend Books"):
 
-    if book_idx is None:
-        st.error("Book not found")
-    else:
-        results = recommend_books(book_idx, top_n)
+        book_idx = get_book_idx(book_title)
 
-        st.subheader("📚 Recommended Books")
+        if book_idx is None:
+            st.error("Book not found")
+        else:
+            results = recommend_books(book_idx, top_n)
 
-        cols = st.columns(3)
+            st.subheader("📚 Recommended Books")
 
-        for i, (_, row) in enumerate(results.iterrows()):
-            col = cols[i % 3]
+            cols = st.columns(3)
 
-            img = row.get("image", "https://via.placeholder.com/200x300")
-            title = row.get("title", "Unknown")
-            author = row.get("author", "Unknown")
-            rating = row.get("rating", "N/A")
-            link = row.get("author_link", "#")
+            for i, (_, row) in enumerate(results.iterrows()):
+                col = cols[i % 3]
 
-            with col:
-                st.markdown(f"""
-                <div class="book-card">
-                    <a href="{link}" target="_blank" style="text-decoration:none; color:inherit;">
-                        <img src="{img}">
-                        <div class="book-title">📖 {title}</div>
-                        <div class="badge">⭐ {rating}</div>
-                    </a>
-                </div>
-                """, unsafe_allow_html=True)
-
+                img = row.get("image", "https://via.placeholder.com/200x300")
+                title = row.get("title", "Unknown")
+                author = row.get("author", "Unknown")
+                rating = row.get("rating", "N/A")
+                link = row.get("author_link", "#")
+                
+                with col:
+                    st.markdown(f"""
+                    <div class="book-card">
+                        <a href="{link}" target="_blank" style="text-decoration:none; color:inherit;">
+                            <img src="{img}">
+                            <div class="book-title">📖 {title}</div>
+                            <div class="badge"> {author}</div>
+                        </a>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
 # -----------------------------
 # AUTHOR MODE
 # -----------------------------
-author = st.selectbox(
-    "Select an author:",
-    sorted(df_final["author"].dropna().unique())
-)
+def book_by_author():
+    st.markdown("<h1 style='font-size:30px;'>👨‍💼 Explore Books by Similar Authors</h1>", unsafe_allow_html=True)
 
-top_k = st.slider("Number of similar authors", 1, 5, 3)
+    author = st.selectbox(
+        "Select an author:",
+        sorted(df_final["author"].dropna().unique())
+    )
 
-if st.button("Find Similar Authors Books"):
+    top_k = st.slider("Number of similar authors", 1, 5, 3)
 
-    similar_authors = get_similar_authors(author, top_k)
+    if st.button("Find Similar Authors Books"):
 
-    st.subheader("👨‍💼 Similar Authors & Books")
+        similar_authors = get_similar_authors(author, top_k)
 
-    for auth in similar_authors:
+        st.subheader("👨‍💼 Similar Authors & Books")
 
-        books = get_top_books(auth, 3)
+        for auth in similar_authors:
 
-        if not books:
-            continue
+            books = get_top_books(auth, 3)
 
-        author_url = df_final[df_final["author"] == auth]["author_link"].iloc[0] \
-            if auth in df_final["author"].values else "#"
-
-        st.markdown(f"### ✍️ <a href='{author_url}' target='_blank'>{auth}</a>",
-                    unsafe_allow_html=True)
-
-        cols = st.columns(3)
-
-        for i, title in enumerate(books):
-
-            row = df_final[df_final["title"] == title]
-
-            if row.empty:
+            if not books:
                 continue
 
-            row = row.iloc[0]
+            author_url = df_final[df_final["author"] == auth]["author_link"].iloc[0] \
+                if auth in df_final["author"].values else "#"
 
-            col = cols[i % 3]
+            st.markdown(f"### ✍️ <a href='{author_url}' target='_blank'>{auth}</a>",
+                        unsafe_allow_html=True)
 
-            with col:
-                st.markdown(f"""
-                <div class="book-card">
-                    <a href="{row.get('author_link','#')}" target="_blank">
-                        <img src="{row.get('image','https://via.placeholder.com/200x300')}">
+            cols = st.columns(3)
+
+            for i, title in enumerate(books):
+
+                row = df_final[df_final["title"] == title]
+
+                if row.empty:
+                    continue
+
+                row = row.iloc[0]
+
+                col = cols[i % 3]
+
+                with col:
+                    st.markdown(f"""
+                    <div class="book-card">
+                        <a href="{row.get('author_link','#')}" target="_blank">
+                        <img src="{row.get('image','https://via.placeholder.com/200x300')}" style="height:350px;">
                         <div class="book-title">📖 {title}</div>
-                        <div class="badge">⭐ {row.get('rating','N/A')}</div>
-                    </a>
-                </div>
-                """, unsafe_allow_html=True)
+                        </a>
+                    </div>
+                    """, unsafe_allow_html=True)
 
+# -----------------------------
+# MOOD BASED RECOMMENDATIONS
+# -----------------------------
+def book_by_mood():
+    st.markdown("<h1 style='font-size:30px;'>🎭 Mood-Based Book Recommender</h1>", unsafe_allow_html=True)
+
+    mood = st.radio(
+        "How do you feel today?",
+        list(mood_map.keys())
+    )
+
+    results = recommend(mood)
+
+    if st.button("Recommend Books for your mood"):
+        for _, row in results.iterrows():
+            st.markdown(f"## {row['title']}")
+            st.write(f"✍️ {row['author']}")
+
+            st.image(row["image"], width=120)
+
+            st.write(row["description"])
+
+            st.divider()
+
+        st.caption(
+            "Matches your mood: " + mood
+        )
+
+    results = recommend(mood)
+
+with tab1:
+    book_by_book()
+
+with tab2:
+    book_by_author()
+
+with tab3:
+    book_by_mood()
+st.divider()
 # -----------------------------
 # FOOTER
 # -----------------------------
