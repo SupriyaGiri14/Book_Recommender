@@ -34,7 +34,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 #Displaying image on sidebar
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parents[2]
 img_path = BASE_DIR / "images" / "book_image.gif"
 
 with st.sidebar:
