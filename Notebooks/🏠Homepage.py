@@ -226,7 +226,10 @@ def recommend(mood):
 # UI
 # -----------------------------
 
-st.sidebar.image(r"../images/book_image.gif ")
+BASE_DIR = Path(__file__).resolve().parent.parent
+img_path = BASE_DIR / "images" / "book_image.gif"
+
+st.sidebar.image(img_path)
 
 st.markdown("""
 <div class="marquee">
