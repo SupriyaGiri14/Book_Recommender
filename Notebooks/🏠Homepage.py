@@ -10,7 +10,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 # CACHE MODEL LOADING (IMPORTANT)
 # -----------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent  # adjust if needed
-MODEL_PATH = BASE_DIR / "pickles" / "full_recommender.pkl"
+MODEL_PATH = BASE_DIR / "Notebooks" / "pickles" / "full_recommender.pkl"
 
 
 @st.cache_resource
