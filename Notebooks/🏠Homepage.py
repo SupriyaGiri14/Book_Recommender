@@ -226,7 +226,7 @@ def recommend(mood):
 # UI
 # -----------------------------
 
-st.sidebar.image(r"..\images\book_image.gif")
+st.sidebar.image(r"../images/book_image.gif ")
 
 st.markdown("""
 <div class="marquee">
