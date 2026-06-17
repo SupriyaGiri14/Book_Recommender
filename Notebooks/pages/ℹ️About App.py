@@ -42,9 +42,10 @@ st.set_page_config(
     page_icon="📚",
     layout="centered"
 )
-
+st.title("📚 Book Recommender System")
+st.write("")
 st.markdown("""
-## 📚 About This App
+## ℹ️ Introduction
 
 This Book Recommender helps you discover new books based on your interests.
 
