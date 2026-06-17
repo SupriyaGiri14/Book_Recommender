@@ -3,15 +3,20 @@ import pickle
 import numpy as np
 import ast
 import pandas as pd
+from pathlib import Path
 from sklearn.metrics.pairwise import cosine_similarity
 
 # -----------------------------
 # CACHE MODEL LOADING (IMPORTANT)
 # -----------------------------
+BASE_DIR = Path(__file__).resolve().parent.parent  # adjust if needed
+MODEL_PATH = BASE_DIR / "pickles" / "full_recommender.pkl"
+
+
 @st.cache_resource
 def load_model():
-    with open("pickles/full_recommender.pkl", "rb") as f:
-        return pickle.load(f)
+    with open(MODEL_PATH, "rb") as f:
+     return pickle.load(f)
 
 model = load_model()
 
