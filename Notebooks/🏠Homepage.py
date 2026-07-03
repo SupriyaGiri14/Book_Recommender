@@ -290,7 +290,7 @@ st.markdown("""
 
 st.title("📚 Book Recommender System")
 st.write("")
-tab1, tab2, tab3 = st.tabs(["📖 Books by Book", "👨‍💼Books by Author", "🎭 Books by Mood"])
+tab1, tab2, tab3 = st.tabs(["📖 Books by Book", "👨‍💼Books by Author", "🎭 Books by Emotions"])
 
 
 # -----------------------------
@@ -394,7 +394,7 @@ def book_by_author():
 # MOOD BASED RECOMMENDATIONS
 # -----------------------------
 def book_by_mood():
-    st.markdown("<h1 style='font-size:30px;'>🎭 Mood-Based Book Recommender</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size:30px;'>🎭 Emotions-Based Book Recommender</h1>", unsafe_allow_html=True)
 
     mood = st.radio(
         "How do you feel today?",
@@ -403,7 +403,7 @@ def book_by_mood():
 
     results = recommend(mood)
 
-    if st.button("Recommend Books for your mood"):
+    if st.button("Recommend Books for your Emotion"):
         for _, row in results.iterrows():
             st.markdown(f"## {row['title']}")
             st.write(f"✍️ {row['author']}")
